@@ -27,7 +27,10 @@ app.UseHttpsRedirection();
 
 #region Songs API endpoints
 
-app.MapPost("/songs", async (CreateSongDto data, AppDbContext dbContext) =>
+var songs = app.MapGroup("/songs");
+
+
+songs.MapPost("/", async (CreateSongDto data, AppDbContext dbContext) =>
 {
     var artist = dbContext.Artists.FirstOrDefault(x => x.Id == data.ArtistId);
     if (artist is null)
@@ -51,12 +54,12 @@ app.MapPost("/songs", async (CreateSongDto data, AppDbContext dbContext) =>
     return Results.Created($"/songs/{song.Id}", song);
 });
 
-app.MapGet("/songs", async (AppDbContext dbContext) =>
+songs.MapGet("/", async (AppDbContext dbContext) =>
 {
     return await dbContext.Songs.Select(x => new GetAllSongsDto(x.Id, x.Title, x.ArtistId)).ToListAsync();
 });
 
-app.MapGet("/songs/{id}", (int id, AppDbContext dbContext) =>
+songs.MapGet("/{id}", (int id, AppDbContext dbContext) =>
 {
     var song = dbContext.Songs.Include(x => x.Artist).FirstOrDefault(x => x.Id == id);
 
@@ -66,7 +69,7 @@ app.MapGet("/songs/{id}", (int id, AppDbContext dbContext) =>
     return Results.Ok(new GetSongDto(song.Id, song.Title, song.ArtistId, song.Artist?.Name));
 });
 
-app.MapPut("/songs/{id}", async (int id, UpdateSongDto data,AppDbContext dbContext) =>
+songs.MapPut("/{id}", async (int id, UpdateSongDto data,AppDbContext dbContext) =>
 {
     var song = dbContext.Songs.FirstOrDefault(x => x.Id == id);
     if (song is null)
@@ -78,11 +81,11 @@ app.MapPut("/songs/{id}", async (int id, UpdateSongDto data,AppDbContext dbConte
     dbContext.Songs.Update(song);
     await dbContext.SaveChangesAsync();
 
-    return Results.NoContent();
+    return Results.Ok(song);
 
 });
 
-app.MapDelete("/songs/{id}", async (int id, AppDbContext dbContext) =>
+songs.MapDelete("/{id}", async (int id, AppDbContext dbContext) =>
 {
     var song = await dbContext.Songs.FirstOrDefaultAsync(x => x.Id == id);
     if (song is null)
@@ -99,7 +102,9 @@ app.MapDelete("/songs/{id}", async (int id, AppDbContext dbContext) =>
 
 #region Artists API endpoints
 
-app.MapPost("/artists", async (CreateArtistDto data, AppDbContext dbContext) =>
+var artists = app.MapGroup("/artists");
+
+artists.MapPost("/", async (CreateArtistDto data, AppDbContext dbContext) =>
 {
     var artist = new Artist()
     {
