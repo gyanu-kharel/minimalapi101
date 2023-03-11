@@ -27,7 +27,28 @@ app.UseHttpsRedirection();
 
 #region Songs API endpoints
 
-app.MapPost("/songs", async (CreateSongDto data, AppDbContext dbContext) =>
+var songs = app.MapGroup("/songs");
+
+songs.MapGet("/", CreateSong);
+songs.MapGet("/", GetAllSongs);
+songs.MapGet("/{id}", GetSongById);
+songs.MapPut("/{id}", UpdateSong);
+songs.MapDelete("/{id}", DeleteSong);
+
+#endregion
+
+#region Artists API endpoints
+
+var artists = app.MapGroup("/artists");
+
+artists.MapPost("/", CreateArtist);
+
+#endregion
+
+app.Run();
+
+#region Songs API methods
+static async Task<IResult> CreateSong(CreateSongDto data, AppDbContext dbContext)
 {
     var artist = dbContext.Artists.FirstOrDefault(x => x.Id == data.ArtistId);
     if (artist is null)
@@ -36,7 +57,7 @@ app.MapPost("/songs", async (CreateSongDto data, AppDbContext dbContext) =>
         {
             { "Artist", new string[] { "Artist not found" } }
         };
-        return Results.ValidationProblem(errors: errors);
+        return TypedResults.ValidationProblem(errors: errors);
     }
 
     var song = new Song()
@@ -48,29 +69,30 @@ app.MapPost("/songs", async (CreateSongDto data, AppDbContext dbContext) =>
     await dbContext.Songs.AddAsync(song);
     await dbContext.SaveChangesAsync();
 
-    return Results.Created($"/songs/{song.Id}", song);
-});
+    return TypedResults.Created($"/songs/{song.Id}", song);
+};
 
-app.MapGet("/songs", async (AppDbContext dbContext) =>
+static async Task<IResult> GetAllSongs(AppDbContext dbContext)
 {
-    return await dbContext.Songs.Select(x => new GetAllSongsDto(x.Id, x.Title, x.ArtistId)).ToListAsync();
-});
+    var songs =  await dbContext.Songs.Select(x => new GetAllSongsDto(x.Id, x.Title, x.ArtistId)).ToListAsync();
+    return TypedResults.Ok(songs);
+};
 
-app.MapGet("/songs/{id}", (int id, AppDbContext dbContext) =>
+static IResult GetSongById(int id, AppDbContext dbContext)
 {
     var song = dbContext.Songs.Include(x => x.Artist).FirstOrDefault(x => x.Id == id);
 
     if (song is null)
-        return Results.NotFound();
+        return TypedResults.NotFound();
 
-    return Results.Ok(new GetSongDto(song.Id, song.Title, song.ArtistId, song.Artist?.Name));
-});
+    return TypedResults.Ok(new GetSongDto(song.Id, song.Title, song.ArtistId, song.Artist?.Name));
+};
 
-app.MapPut("/songs/{id}", async (int id, UpdateSongDto data,AppDbContext dbContext) =>
+static async Task<IResult> UpdateSong(int id, UpdateSongDto data,AppDbContext dbContext)
 {
     var song = dbContext.Songs.FirstOrDefault(x => x.Id == id);
     if (song is null)
-        return Results.NotFound();
+        return TypedResults.NotFound();
 
     song.Title = data.Title ?? song.Title;
     song.ArtistId = data.ArtistId ?? song.ArtistId;
@@ -78,28 +100,26 @@ app.MapPut("/songs/{id}", async (int id, UpdateSongDto data,AppDbContext dbConte
     dbContext.Songs.Update(song);
     await dbContext.SaveChangesAsync();
 
-    return Results.NoContent();
+    return TypedResults.NoContent();
 
-});
+};
 
-app.MapDelete("/songs/{id}", async (int id, AppDbContext dbContext) =>
+static async Task<IResult> DeleteSong(int id, AppDbContext dbContext)
 {
     var song = await dbContext.Songs.FirstOrDefaultAsync(x => x.Id == id);
     if (song is null)
-        return Results.NotFound();
+        return TypedResults.NotFound();
 
     dbContext.Songs.Remove(song);
     await dbContext.SaveChangesAsync();
 
-    return Results.Ok();
-});
+    return TypedResults.Ok();
+};
 
 #endregion
 
-
-#region Artists API endpoints
-
-app.MapPost("/artists", async (CreateArtistDto data, AppDbContext dbContext) =>
+#region Artists API methods
+static async Task<IResult> CreateArtist(CreateArtistDto data, AppDbContext dbContext)
 {
     var artist = new Artist()
     {
@@ -109,15 +129,14 @@ app.MapPost("/artists", async (CreateArtistDto data, AppDbContext dbContext) =>
     await dbContext.Artists.AddAsync(artist);
     await dbContext.SaveChangesAsync();
 
-    return Results.Created($"/artists/{artist.Id}", artist);
-});
-
+    return TypedResults.Created($"/artists/{artist.Id}", artist);
+};
 
 #endregion
 
 
 
-app.Run();
+
 
 
 
